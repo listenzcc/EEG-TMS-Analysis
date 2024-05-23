@@ -23,59 +23,58 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 
+import seaborn as sns
+import matplotlib.pyplot as plt
+
 from util.read_files import read_files
 from IPython.display import display
 
 
 # %% ---- 2024-05-23 ------------------------
 # Function and class
+
+
+# %% ---- 2024-05-23 ------------------------
+# Play ground
+
 files = read_files()
 display(files)
 
-# %%
 # %%
 path = files.loc[4, 'path']
 
 selected = files[files['stem'].map(lambda s: s.startswith('jichangkai'))]
 path = selected.iloc[0]['path']
-print(path)
+display(path)
 
 epochs = mne.io.read_epochs_eeglab(path)
-epochs
+display(epochs)
 
-# %% ---- 2024-05-23 ------------------------
-# Play ground
-evoked = epochs.average()
-# evoked.plot()
-# fig = epochs[0].plot()
+# The shape of epochs_data is (n_epochs, channels, n_times)
+# The shape of times is (n_times,)
+epochs_data = epochs.get_data()
+times = epochs.times
+ch_names = epochs.info['ch_names']
+display(epochs_data.shape, times.shape)
 
 # %%
-data = evoked.data
-times = evoked.times
-ch_names = evoked.info['ch_names']
-print(data.shape, times.shape)
+selected_times_map = [-0.01 < t < 0.01 for t in times]
+selected_times = np.array(times[selected_times_map])
+mat = epochs_data[:, 0, selected_times_map].squeeze()
+display(mat.shape, selected_times.shape)
 
-x_array = []
-y_array = []
-ch_array = []
-for ch, d in zip(ch_names, data):
-    x_array.append(times)
-    y_array.append(d)
-    ch_array.append([ch] * len(d))
-
-x_array = np.concatenate(x_array)
-y_array = np.concatenate(y_array)
-ch_array = np.concatenate(ch_array)
-print(x_array, y_array, ch_array)
-df = pd.DataFrame()
-df['x'] = x_array
-df['y'] = y_array
-df['ch'] = ch_array
-
-display(df)
-
-px.line(df, x='x', y='y', color='ch', title=path.name)
-
+m = 100*1e-6
+fig, ax = plt.subplots(1, 1)
+sns.heatmap(mat, cmap='RdBu', vmax=m, vmin=-m, ax=ax)
+ax.set_xticks(
+    range(len(selected_times))[::10],
+    selected_times[::10], rotation=45)
+i = int(np.argwhere(selected_times == 0).squeeze())
+ax.axvline(x=i, color='green', linewidth=2)
+ax.text(x=i, y=0, s='x=0', ha='right', va='top', color='green')
+ax.set_title(path.name)
+fig.tight_layout()
+plt.show()
 
 # %% ---- 2024-05-23 ------------------------
 # Pending
